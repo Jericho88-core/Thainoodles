@@ -1,0 +1,466 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ระบบสั่งอาหารผ่าน QR Code</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body>
+    <div id="app"></div>
+    
+    <script>
+        // ข้อมูลเมนูอาหาร
+        const menuItems = [
+            { id: 1, name: 'ก๋วยเตี๋ยวเรือเส้นเล็ก', price: 50, category: 'ก๋วยเตี๋ยว', image: '🍜' },
+            { id: 2, name: 'ก๋วยเตี๋ยวเรือเส้นใหญ่', price: 50, category: 'ก๋วยเตี๋ยว', image: '🍜' },
+            { id: 3, name: 'ก๋วยเตี๋ยวเรือวุ้นเส้น', price: 50, category: 'ก๋วยเตี๋ยว', image: '🍜' },
+            { id: 4, name: 'ก๋วยเตี๋ยวต้มยำ', price: 55, category: 'ก๋วยเตี๋ยว', image: '🍲' },
+            { id: 5, name: 'ข้าวผัดหมู', price: 45, category: 'ข้าว', image: '🍛' },
+            { id: 6, name: 'ข้าวผัดกุ้ง', price: 60, category: 'ข้าว', image: '🍤' },
+            { id: 7, name: 'ข้าวหมูกรอบ', price: 50, category: 'ข้าว', image: '🍖' },
+            { id: 8, name: 'น้ำเปล่า', price: 10, category: 'เครื่องดื่ม', image: '💧' },
+            { id: 9, name: 'น้ำอัดลม', price: 20, category: 'เครื่องดื่ม', image: '🥤' },
+            { id: 10, name: 'ชาเย็น', price: 25, category: 'เครื่องดื่ม', image: '🧋' },
+        ];
+
+        const meatOptions = ['หมูน้ำตก', 'หมูสับ', 'ลูกชิ้นหมู', 'เนื้อ', 'ไก่'];
+        const tasteOptions = ['ธรรมดา', 'น้อยไข่', 'เยอะไข่', 'น้ำใส', 'น้ำข้น'];
+
+        // State
+        let state = {
+            currentView: 'home',
+            tableNumber: null,
+            cart: [],
+            orders: [],
+            selectedItem: null,
+            customization: { meat: '', taste: '' }
+        };
+
+        function setState(newState) {
+            state = { ...state, ...newState };
+            render();
+        }
+
+        function addToCart(item) {
+            if (item.category === 'ก๋วยเตี๋ยว') {
+                setState({ selectedItem: item });
+            } else {
+                const cartItem = {
+                    ...item,
+                    cartId: Date.now(),
+                    quantity: 1,
+                };
+                setState({ cart: [...state.cart, cartItem] });
+            }
+        }
+
+        function addNoodleToCart() {
+            if (!state.customization.meat || !state.customization.taste) {
+                alert('กรุณาเลือกเนื้อและรสชาติ');
+                return;
+            }
+            const cartItem = {
+                ...state.selectedItem,
+                cartId: Date.now(),
+                quantity: 1,
+                customization: { ...state.customization },
+            };
+            setState({ 
+                cart: [...state.cart, cartItem],
+                selectedItem: null,
+                customization: { meat: '', taste: '' }
+            });
+        }
+
+        function removeFromCart(cartId) {
+            setState({ cart: state.cart.filter(item => item.cartId !== cartId) });
+        }
+
+        function getTotalPrice() {
+            return state.cart.reduce((total, item) => total + (item.price * item.quantity), 0);
+        }
+
+        function submitOrder() {
+            if (state.cart.length === 0) {
+                alert('กรุณาเลือกอาหารก่อนสั่ง');
+                return;
+            }
+
+            const newOrder = {
+                id: Date.now(),
+                tableNumber: state.tableNumber,
+                items: [...state.cart],
+                total: getTotalPrice(),
+                time: new Date().toLocaleTimeString('th-TH'),
+                status: 'pending',
+            };
+
+            setState({ 
+                orders: [...state.orders, newOrder],
+                currentView: 'receipt'
+            });
+        }
+
+        function updateOrderStatus(orderId, status) {
+            setState({
+                orders: state.orders.map(order => 
+                    order.id === orderId ? { ...order, status } : order
+                )
+            });
+        }
+
+        function printReceipt(order) {
+            const printWindow = window.open('', '', 'width=300,height=600');
+            printWindow.document.write(`
+                <html>
+                    <head>
+                        <title>ใบเสร็จ</title>
+                        <style>
+                            body { font-family: 'Courier New', monospace; padding: 10px; }
+                            h2, h3 { text-align: center; margin: 5px 0; }
+                            .line { border-bottom: 1px dashed #000; margin: 10px 0; }
+                            .item { display: flex; justify-content: space-between; margin: 5px 0; }
+                            .total { font-weight: bold; font-size: 16px; margin-top: 10px; }
+                        </style>
+                    </head>
+                    <body>
+                        <h2>ร้านอาหาร</h2>
+                        <h3>ใบเสร็จรับเงิน</h3>
+                        <div class="line"></div>
+                        <p>โต๊ะ: ${order.tableNumber}</p>
+                        <p>เวลา: ${order.time}</p>
+                        <div class="line"></div>
+                        ${order.items.map(item => `
+                            <div class="item">
+                                <span>${item.name} ${item.customization ? `(${item.customization.meat}, ${item.customization.taste})` : ''}</span>
+                                <span>${item.price}฿</span>
+                            </div>
+                        `).join('')}
+                        <div class="line"></div>
+                        <div class="item total">
+                            <span>รวมทั้งสิ้น</span>
+                            <span>${order.total}฿</span>
+                        </div>
+                        <div class="line"></div>
+                        <h3>ขอบคุณที่ใช้บริการ</h3>
+                    </body>
+                </html>
+            `);
+            printWindow.document.close();
+            printWindow.print();
+        }
+
+        function renderHome() {
+            return `
+                <div class="min-h-screen bg-gradient-to-br from-orange-100 to-red-100 p-6">
+                    <div class="max-w-4xl mx-auto">
+                        <div class="bg-white rounded-2xl shadow-2xl p-8 text-center">
+                            <div class="text-6xl mb-4">🍜</div>
+                            <h1 class="text-4xl font-bold text-gray-800 mb-2">ระบบสั่งอาหารผ่าน QR Code</h1>
+                            <p class="text-gray-600 mb-8">เลือกโต๊ะเพื่อเริ่มสแกน QR Code</p>
+                            
+                            <div class="grid grid-cols-4 gap-4 mb-8">
+                                ${[1,2,3,4,5,6,7,8,9,10,11,12].map(table => `
+                                    <button onclick="setState({ tableNumber: ${table}, currentView: 'menu' })" 
+                                        class="bg-orange-500 hover:bg-orange-600 text-white font-bold py-6 px-4 rounded-xl transition transform hover:scale-105 shadow-lg">
+                                        โต๊ะ ${table}
+                                    </button>
+                                `).join('')}
+                            </div>
+
+                            <button onclick="setState({ currentView: 'kitchen' })" 
+                                class="bg-green-500 hover:bg-green-600 text-white font-bold py-3 px-8 rounded-xl transition">
+                                👨‍🍳 หน้าจอครัว
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function renderMenu() {
+            return `
+                <div class="min-h-screen bg-gray-50 pb-32">
+                    <div class="bg-orange-500 text-white p-6 shadow-lg sticky top-0 z-10">
+                        <div class="max-w-4xl mx-auto flex justify-between items-center">
+                            <div>
+                                <h2 class="text-2xl font-bold">โต๊ะ ${state.tableNumber}</h2>
+                                <p class="text-orange-100">เลือกเมนูที่ต้องการ</p>
+                            </div>
+                            <button onclick="setState({ currentView: 'home' })" 
+                                class="bg-white text-orange-500 px-4 py-2 rounded-lg font-bold">
+                                กลับ
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="max-w-4xl mx-auto p-6">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            ${menuItems.map(item => `
+                                <div class="bg-white rounded-xl shadow-md p-4 flex items-center gap-4 hover:shadow-lg transition">
+                                    <div class="text-5xl">${item.image}</div>
+                                    <div class="flex-1">
+                                        <h3 class="font-bold text-lg text-gray-800">${item.name}</h3>
+                                        <p class="text-orange-500 font-bold">${item.price} ฿</p>
+                                    </div>
+                                    <button onclick='addToCart(${JSON.stringify(item)})' 
+                                        class="bg-orange-500 hover:bg-orange-600 text-white px-4 py-2 rounded-lg font-bold">
+                                        เพิ่ม
+                                    </button>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+
+                    <div class="fixed bottom-0 left-0 right-0 bg-white border-t-4 border-orange-500 shadow-2xl p-4">
+                        <div class="max-w-4xl mx-auto">
+                            <div class="flex justify-between items-center mb-4">
+                                <div class="flex items-center gap-2">
+                                    <span class="text-2xl">🛒</span>
+                                    <span class="font-bold text-lg">ตะกร้า (${state.cart.length})</span>
+                                </div>
+                                <span class="text-2xl font-bold text-orange-500">${getTotalPrice()} ฿</span>
+                            </div>
+                            
+                            ${state.cart.length > 0 ? `
+                                <div class="max-h-32 overflow-y-auto mb-4 space-y-2">
+                                    ${state.cart.map(item => `
+                                        <div class="flex justify-between items-center text-sm bg-gray-50 p-2 rounded">
+                                            <span>
+                                                ${item.name}
+                                                ${item.customization ? `(${item.customization.meat}, ${item.customization.taste})` : ''}
+                                            </span>
+                                            <div class="flex items-center gap-2">
+                                                <span class="font-bold">${item.price}฿</span>
+                                                <button onclick="removeFromCart(${item.cartId})" 
+                                                    class="text-red-500 hover:text-red-700 text-xl">
+                                                    ✕
+                                                </button>
+                                            </div>
+                                        </div>
+                                    `).join('')}
+                                </div>
+                            ` : ''}
+
+                            <button onclick="submitOrder()" 
+                                class="w-full bg-green-500 hover:bg-green-600 text-white font-bold py-4 rounded-xl transition transform hover:scale-105">
+                                สั่งอาหารและชำระเงิน
+                            </button>
+                        </div>
+                    </div>
+
+                    ${state.selectedItem ? `
+                        <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+                            <div class="bg-white rounded-2xl p-6 max-w-md w-full">
+                                <h3 class="text-2xl font-bold mb-4">${state.selectedItem.name}</h3>
+                                
+                                <div class="mb-4">
+                                    <label class="block font-bold mb-2">เลือกเนื้อ:</label>
+                                    <div class="grid grid-cols-2 gap-2">
+                                        ${meatOptions.map(meat => `
+                                            <button onclick="setState({ customization: { ...state.customization, meat: '${meat}' }})" 
+                                                class="p-3 rounded-lg border-2 font-bold transition ${state.customization.meat === meat ? 'bg-orange-500 text-white border-orange-500' : 'bg-white text-gray-700 border-gray-300 hover:border-orange-500'}">
+                                                ${meat}
+                                            </button>
+                                        `).join('')}
+                                    </div>
+                                </div>
+
+                                <div class="mb-6">
+                                    <label class="block font-bold mb-2">เลือกรสชาติ:</label>
+                                    <div class="grid grid-cols-2 gap-2">
+                                        ${tasteOptions.map(taste => `
+                                            <button onclick="setState({ customization: { ...state.customization, taste: '${taste}' }})" 
+                                                class="p-3 rounded-lg border-2 font-bold transition ${state.customization.taste === taste ? 'bg-orange-500 text-white border-orange-500' : 'bg-white text-gray-700 border-gray-300 hover:border-orange-500'}">
+                                                ${taste}
+                                            </button>
+                                        `).join('')}
+                                    </div>
+                                </div>
+
+                                <div class="flex gap-2">
+                                    <button onclick="setState({ selectedItem: null, customization: { meat: '', taste: '' }})" 
+                                        class="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-3 rounded-lg">
+                                        ยกเลิก
+                                    </button>
+                                    <button onclick="addNoodleToCart()" 
+                                        class="flex-1 bg-orange-500 hover:bg-orange-600 text-white font-bold py-3 rounded-lg">
+                                        เพิ่มลงตะกร้า
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    ` : ''}
+                </div>
+            `;
+        }
+
+        function renderKitchen() {
+            const pendingOrders = state.orders.filter(o => o.status === 'pending');
+            const cookingOrders = state.orders.filter(o => o.status === 'cooking');
+            const completedOrders = state.orders.filter(o => o.status === 'completed');
+
+            const renderOrderCard = (order) => `
+                <div class="bg-gray-50 border-2 border-gray-200 rounded-xl p-4">
+                    <div class="flex justify-between items-center mb-3">
+                        <span class="text-2xl font-bold text-orange-500">โต๊ะ ${order.tableNumber}</span>
+                        <span class="text-sm text-gray-600">${order.time}</span>
+                    </div>
+
+                    <div class="space-y-2 mb-4">
+                        ${order.items.map(item => `
+                            <div class="text-sm">
+                                <span class="font-bold">${item.name}</span>
+                                ${item.customization ? `
+                                    <div class="text-gray-600 ml-2">
+                                        • ${item.customization.meat}, ${item.customization.taste}
+                                    </div>
+                                ` : ''}
+                            </div>
+                        `).join('')}
+                    </div>
+
+                    <div class="flex gap-2">
+                        ${order.status === 'pending' ? `
+                            <button onclick="updateOrderStatus(${order.id}, 'cooking')" 
+                                class="flex-1 bg-yellow-500 hover:bg-yellow-600 text-white font-bold py-2 px-4 rounded-lg transition">
+                                เริ่มทำ
+                            </button>
+                        ` : ''}
+                        ${order.status === 'cooking' ? `
+                            <button onclick="updateOrderStatus(${order.id}, 'completed')" 
+                                class="flex-1 bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-4 rounded-lg transition">
+                                เสร็จแล้ว
+                            </button>
+                        ` : ''}
+                        <button onclick='printReceipt(${JSON.stringify(order)})' 
+                            class="bg-blue-500 hover:bg-blue-600 text-white p-2 rounded-lg transition text-xl">
+                            🖨️
+                        </button>
+                    </div>
+                </div>
+            `;
+
+            return `
+                <div class="min-h-screen bg-gray-100 p-6">
+                    <div class="max-w-7xl mx-auto">
+                        <div class="bg-white rounded-2xl shadow-lg p-6 mb-6">
+                            <div class="flex justify-between items-center">
+                                <h1 class="text-3xl font-bold">👨‍🍳 หน้าจอครัว</h1>
+                                <button onclick="setState({ currentView: 'home' })" 
+                                    class="bg-gray-500 hover:bg-gray-600 text-white px-6 py-2 rounded-lg font-bold">
+                                    กลับ
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                            <div>
+                                <div class="bg-red-500 text-white p-4 rounded-t-xl font-bold text-lg">
+                                    ⏰ ออเดอร์ใหม่ (${pendingOrders.length})
+                                </div>
+                                <div class="space-y-4 p-4 bg-white rounded-b-xl shadow-lg">
+                                    ${pendingOrders.map(renderOrderCard).join('')}
+                                </div>
+                            </div>
+
+                            <div>
+                                <div class="bg-yellow-500 text-white p-4 rounded-t-xl font-bold text-lg">
+                                    👨‍🍳 กำลังทำ (${cookingOrders.length})
+                                </div>
+                                <div class="space-y-4 p-4 bg-white rounded-b-xl shadow-lg">
+                                    ${cookingOrders.map(renderOrderCard).join('')}
+                                </div>
+                            </div>
+
+                            <div>
+                                <div class="bg-green-500 text-white p-4 rounded-t-xl font-bold text-lg">
+                                    ✅ เสร็จแล้ว (${completedOrders.length})
+                                </div>
+                                <div class="space-y-4 p-4 bg-white rounded-b-xl shadow-lg">
+                                    ${completedOrders.map(renderOrderCard).join('')}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function renderReceipt() {
+            const lastOrder = state.orders[state.orders.length - 1];
+            
+            return `
+                <div class="min-h-screen bg-gradient-to-br from-green-100 to-blue-100 flex items-center justify-center p-6">
+                    <div class="bg-white rounded-2xl shadow-2xl p-8 max-w-md w-full">
+                        <div class="text-center mb-6">
+                            <div class="text-6xl mb-4">✅</div>
+                            <h2 class="text-3xl font-bold text-gray-800 mb-2">สั่งอาหารสำเร็จ!</h2>
+                            <p class="text-gray-600">ออเดอร์ของคุณถูกส่งไปยังครัวแล้ว</p>
+                        </div>
+
+                        <div class="bg-gray-50 rounded-xl p-6 mb-6">
+                            <div class="flex justify-between mb-4">
+                                <span class="font-bold">โต๊ะ:</span>
+                                <span>${lastOrder.tableNumber}</span>
+                            </div>
+                            <div class="flex justify-between mb-4">
+                                <span class="font-bold">เวลา:</span>
+                                <span>${lastOrder.time}</span>
+                            </div>
+                            <div class="border-t border-gray-300 pt-4 mb-4">
+                                ${lastOrder.items.map(item => `
+                                    <div class="flex justify-between mb-2">
+                                        <span class="text-sm">
+                                            ${item.name}
+                                            ${item.customization ? `(${item.customization.meat}, ${item.customization.taste})` : ''}
+                                        </span>
+                                        <span class="font-bold">${item.price}฿</span>
+                                    </div>
+                                `).join('')}
+                            </div>
+                            <div class="border-t border-gray-300 pt-4">
+                                <div class="flex justify-between text-xl font-bold text-orange-500">
+                                    <span>รวมทั้งสิ้น:</span>
+                                    <span>${lastOrder.total}฿</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="space-y-3">
+                            <button onclick='printReceipt(${JSON.stringify(lastOrder)})' 
+                                class="w-full bg-blue-500 hover:bg-blue-600 text-white font-bold py-3 rounded-xl transition">
+                                🖨️ พิมพ์ใบเสร็จ
+                            </button>
+                            <button onclick="setState({ cart: [], currentView: 'menu' })" 
+                                class="w-full bg-orange-500 hover:bg-orange-600 text-white font-bold py-3 rounded-xl transition">
+                                สั่งเพิ่ม
+                            </button>
+                            <button onclick="setState({ cart: [], tableNumber: null, currentView: 'home' })" 
+                                class="w-full bg-gray-500 hover:bg-gray-600 text-white font-bold py-3 rounded-xl transition">
+                                กลับหน้าหลัก
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function render() {
+            const app = document.getElementById('app');
+            let content = '';
+            
+            if (state.currentView === 'home') content = renderHome();
+            else if (state.currentView === 'menu') content = renderMenu();
+            else if (state.currentView === 'kitchen') content = renderKitchen();
+            else if (state.currentView === 'receipt') content = renderReceipt();
+            
+            app.innerHTML = content;
+        }
+
+        // เริ่มต้น
+        render();
+    </script>
+</body>
+</html>
