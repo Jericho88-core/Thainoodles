@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8" />
+  <title>ชำระเงิน - ป.ประทีป</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="stylesheet" href="/static/style.css" />
+</head>
+<body>
+  <h1>ชำระเงิน</h1>
+  <p>บิลเลขที่: {{ order['id'] }} | โต๊ะ: {{ order['table_number'] }}</p>
+  <p>เวลา: {{ order['created_at'] }}</p>
+
+  <h2>รายการอาหาร</h2>
+  <ul>
+    {% for it in items %}
+    <li>{{ it['item_name'] }} x {{ it['quantity'] }} = {{ "%.2f"|format(it['quantity'] * it['price']) }} บาท</li>
+    {% endfor %}
+  </ul>
+  <p><strong>รวมทั้งสิ้น: {{ "%.2f"|format(total) }} บาท</strong></p>
+
+  <h2>เลือกวิธีชำระเงิน</h2>
+  <form method="post" action="/pay/{{ order['id'] }}/confirm">
+    <label>
+      <input type="radio" name="method" value="cash" checked>
+      ชำระเงินสดที่เคาน์เตอร์
+    </label><br>
+    <label>
+      <input type="radio" name="method" value="promptpay">
+      ชำระด้วย PromptPay / โอน (ยืนยันที่หน้าเคาน์เตอร์)
+    </label><br><br>
+    <button type="submit">ยืนยันการชำระเงิน</button>
+  </form>
+</body>
+</html>
